@@ -47,9 +47,16 @@ def build_system_prompt(context: str = None, subject: str = None) -> str:
     if subject:
         extras.append(f"Session topic: {subject}")
     if context:
-        extras.append(f"Speaker's key context and talking points:\n{context}")
+        extras.append(
+            f"Speaker's background briefing — for context ONLY. "
+            f"Do NOT surface this as slide content unless the speaker explicitly mentions it in the excerpt below:\n{context}"
+        )
     if extras:
-        prompt += "\n\nAdditional speaker context (use this to make slides more relevant):\n" + "\n".join(extras)
+        prompt += (
+            "\n\nBackground context (use to understand terminology and relevance, "
+            "but generate slide content ONLY from what the speaker actually says in the transcript):\n"
+            + "\n".join(extras)
+        )
     return prompt
 
 
