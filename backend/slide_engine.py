@@ -36,7 +36,9 @@ Return ONLY valid JSON with this exact structure:
 
 Rules:
 - Title: capture the core subject specifically. Short and punchy.
-- Points: only what actually matters. Skip filler. Max 3, can be fewer.
+- Points: extract what matters AND add a brief sentence of context or implication when it helps the audience understand why it matters. Think: what would a smart analyst write in the margin?
+- Do not just transcribe — enrich. If the speaker mentions a metric, add what it means. If they mention a decision, add the consequence. Keep it tight.
+- Max 3 points, can be fewer.
 - "highlight" layout = one dominant insight. "metrics" = numbers dominate. "actions" = things to do. "standard" = default.
 - topic_key helps detect duplicate topics — reuse the same key for similar topics."""
 
