@@ -1,5 +1,7 @@
 import os
 import sqlite3
+from dotenv import load_dotenv
+load_dotenv()
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager

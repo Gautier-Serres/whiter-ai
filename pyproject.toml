@@ -8,6 +8,8 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "pydantic[email]>=2.9.0",
     "anthropic>=0.40.0",
+    "python-dotenv>=1.0.0",
+    "groq>=0.11.0",
 ]
 
 [project.optional-dependencies]

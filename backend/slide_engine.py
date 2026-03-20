@@ -6,22 +6,22 @@ Falls back to heuristics if the API key is unavailable.
 import os
 import json
 import re
-import anthropic
+from groq import Groq
 
 _client = None
 
 def get_client():
     global _client
     if _client is None:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY")
         if api_key:
-            _client = anthropic.Anthropic(api_key=api_key)
+            _client = Groq(api_key=api_key)
     return _client
 
 
-# ─── Claude-powered generation ────────────────────────────────────────────────
+# ─── Groq-powered generation ──────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a real-time meeting assistant. Your job is to extract the most important insight from a speech excerpt and turn it into a concise slide.
+SYSTEM_PROMPT = """You are a real-time meeting assistant. Extract the most important insight from a speech excerpt and return a concise slide as JSON.
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -34,35 +34,31 @@ Return ONLY valid JSON with this exact structure:
 }
 
 Rules:
-- Title: capture the core subject, not just random words. Short and specific.
-- Points: only what actually matters. Skip filler. Max 3 points, can be fewer.
-- Use "highlight" layout when there is one single dominant insight.
-- Use "metrics" layout when numbers/figures dominate.
-- Use "actions" layout when the speech describes things to do.
-- Use "standard" otherwise.
-- topic_key helps detect duplicate topics — use the same key for similar topics."""
+- Title: capture the core subject specifically. Short and punchy.
+- Points: only what actually matters. Skip filler. Max 3, can be fewer.
+- "highlight" layout = one dominant insight. "metrics" = numbers dominate. "actions" = things to do. "standard" = default.
+- topic_key helps detect duplicate topics — reuse the same key for similar topics."""
 
 
-def generate_with_claude(transcript: str) -> dict | None:
+def generate_with_groq(transcript: str) -> dict | None:
     client = get_client()
     if not client:
         return None
     try:
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             max_tokens=300,
-            system=SYSTEM_PROMPT,
+            temperature=0.3,
             messages=[
-                {"role": "user", "content": f"Speech excerpt:\n\"{transcript}\""}
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Speech excerpt:\n\"{transcript}\""},
             ],
         )
-        raw = message.content[0].text.strip()
-        # Strip markdown code fences if present
+        raw = response.choices[0].message.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
         data = json.loads(raw)
 
-        # Ensure required fields exist
         return {
             "title": str(data.get("title", "Key Insight")),
             "points": list(data.get("points", []))[:3],
@@ -164,7 +160,7 @@ def generate_fallback(transcript: str) -> dict:
 # ─── Main entry point ─────────────────────────────────────────────────────────
 
 def generate_slide(transcript: str) -> dict:
-    result = generate_with_claude(transcript)
+    result = generate_with_groq(transcript)
     if result:
         return result
     return generate_fallback(transcript)
