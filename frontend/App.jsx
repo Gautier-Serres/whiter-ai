@@ -4,6 +4,7 @@ import { Player } from "@remotion/player";
 import { Mic, Zap, Monitor, Users, Quote, ArrowRight, Sparkles, Brain, LayoutTemplate } from "lucide-react";
 import { HeroComposition } from "./components/HeroComposition";
 import { HowItWorksComposition } from "./components/HowItWorksComposition";
+import { Waitlist } from "./components/Waitlist";
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar() {
@@ -323,82 +324,6 @@ function Testimonials() {
             </motion.div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── Waitlist ─────────────────────────────────────────────────────────────────
-function Waitlist() {
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState("idle"); // idle | loading | success | error
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus("loading");
-    await new Promise((r) => setTimeout(r, 800));
-    setStatus("success");
-  };
-
-  return (
-    <section id="waitlist" className="py-24 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-dark to-accent/10" />
-      <div className="absolute inset-0 bg-dark/60" />
-
-      <div className="relative max-w-2xl mx-auto px-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 mb-6">
-            <Sparkles size={14} className="text-accent" />
-            <span className="text-accent text-xs font-heading font-semibold tracking-wide uppercase">
-              Limited early access
-            </span>
-          </div>
-
-          <h2 className="font-heading font-bold text-4xl md:text-5xl text-white mb-4">
-            Be first to present
-            <br />
-            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              without a deck.
-            </span>
-          </h2>
-          <p className="font-body text-slate-400 text-lg mb-10">
-            Join the waitlist for early access. We're onboarding in small cohorts starting Q2 2025.
-          </p>
-
-          {status === "success" ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-primary/10 border border-primary/40 rounded-xl p-6"
-            >
-              <div className="font-heading font-bold text-white text-xl mb-2">You're on the list.</div>
-              <div className="font-body text-slate-400">We'll reach out when your cohort opens. Expect something special.</div>
-            </motion.div>
-          ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <input
-                type="email"
-                required
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 bg-white/5 border border-white/20 text-white placeholder-slate-500 font-body px-5 py-4 rounded-xl focus:outline-none focus:border-primary/60 transition-colors duration-200"
-              />
-              <button
-                type="submit"
-                disabled={status === "loading"}
-                className="bg-primary hover:bg-primary/90 text-white font-heading font-semibold px-7 py-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-primary/30 disabled:opacity-60 whitespace-nowrap flex items-center gap-2"
-              >
-                {status === "loading" ? "..." : <>Get access <ArrowRight size={16} /></>}
-              </button>
-            </form>
-          )}
-        </motion.div>
       </div>
     </section>
   );
