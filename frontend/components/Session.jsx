@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Mic, MicOff, TrendingUp, Layers, Users, Target, Sparkles, Settings, X, RotateCcw,
+  Mic, MicOff, TrendingUp, Layers, Users, Target, Sparkles, Settings, X, RotateCcw, Send,
 } from "lucide-react";
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -84,6 +84,8 @@ function SlideCard({ card, index }) {
 
 export function Session({ onClose }) {
   const [active, setActive] = useState(false);
+  const [fallback, setFallback] = useState(false);
+  const [fallbackInput, setFallbackInput] = useState("");
   const [cards, setCards] = useState([]);
   const [lastTranscript, setLastTranscript] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -146,7 +148,15 @@ export function Session({ onClose }) {
     };
 
     recognition.onerror = (e) => {
-      if (e.error !== "no-speech") setError("Mic error: " + e.error);
+      if (e.error === "no-speech") return;
+      // Network error = Google speech servers unreachable → switch to fallback
+      if (e.error === "network") {
+        stopListening();
+        setFallback(true);
+        setError("");
+      } else {
+        setError("Mic error: " + e.error);
+      }
     };
 
     recognition.onend = () => {
@@ -172,11 +182,21 @@ export function Session({ onClose }) {
     setLastTranscript("");
   }, []);
 
+  const submitFallback = async (e) => {
+    e.preventDefault();
+    const text = fallbackInput.trim();
+    if (!text) return;
+    setLastTranscript(text);
+    setFallbackInput("");
+    await generateCard(text);
+  };
+
   const reset = () => {
     stopListening();
     setCards([]);
     setLastTranscript("");
     setError("");
+    setFallbackInput("");
   };
 
   useEffect(() => {
@@ -215,40 +235,95 @@ export function Session({ onClose }) {
       <div className="flex flex-1 overflow-hidden">
         {/* Left: controls */}
         <div className="w-72 border-r border-white/10 flex flex-col items-center justify-center gap-6 px-8 flex-shrink-0">
-          {/* Mic button */}
-          <button
-            onClick={active ? stopListening : startListening}
-            className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-              active
-                ? "bg-red-500/20 border-2 border-red-500/60 hover:bg-red-500/30 shadow-lg shadow-red-500/20"
-                : "bg-primary/20 border-2 border-primary/60 hover:bg-primary/30 shadow-lg shadow-primary/20"
-            }`}
-          >
-            {active ? (
-              <MicOff size={30} className="text-red-400" />
-            ) : (
-              <Mic size={30} className="text-primary" />
-            )}
-          </button>
 
-          {/* Status */}
-          <div className="text-center">
-            {active ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-slate-400 font-body">
-                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                  Listening…
+          {fallback ? (
+            /* ── Fallback mode: type to simulate speech ── */
+            <>
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto mb-3">
+                  <Mic size={24} className="text-primary" />
                 </div>
-                <Waveform active={active} />
+                <p className="text-white text-sm font-heading font-semibold mb-1">Demo mode</p>
+                <p className="text-slate-500 text-xs font-body text-center leading-relaxed">
+                  Type what's being said and press Enter — slides generate just like the live version.
+                </p>
               </div>
-            ) : (
-              <p className="text-slate-500 text-sm font-body text-center">
-                {isChromeOrEdge
-                  ? "Click to start listening"
-                  : "Use Chrome for live mic support"}
-              </p>
-            )}
-          </div>
+
+              <form onSubmit={submitFallback} className="w-full flex flex-col gap-2">
+                <textarea
+                  value={fallbackInput}
+                  onChange={(e) => setFallbackInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) submitFallback(e); }}
+                  placeholder="Our Q4 revenue target is 2 million euros…"
+                  rows={3}
+                  className="w-full bg-white/5 border border-white/15 text-white placeholder-slate-600 text-sm font-body px-3 py-2.5 rounded-lg focus:outline-none focus:border-primary/50 resize-none transition-colors duration-200"
+                />
+                <button
+                  type="submit"
+                  disabled={!fallbackInput.trim() || generating}
+                  className="flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-40 text-white text-sm font-heading font-semibold px-4 py-2.5 rounded-lg transition-all duration-200"
+                >
+                  <Send size={14} /> Generate slide
+                </button>
+              </form>
+
+              <button
+                onClick={() => { setFallback(false); setError(""); }}
+                className="text-slate-600 hover:text-slate-400 text-xs font-body transition-colors duration-200"
+              >
+                Try mic again
+              </button>
+            </>
+          ) : (
+            /* ── Normal mode: mic button ── */
+            <>
+              <button
+                onClick={active ? stopListening : startListening}
+                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+                  active
+                    ? "bg-red-500/20 border-2 border-red-500/60 hover:bg-red-500/30 shadow-lg shadow-red-500/20"
+                    : "bg-primary/20 border-2 border-primary/60 hover:bg-primary/30 shadow-lg shadow-primary/20"
+                }`}
+              >
+                {active ? (
+                  <MicOff size={30} className="text-red-400" />
+                ) : (
+                  <Mic size={30} className="text-primary" />
+                )}
+              </button>
+
+              <div className="text-center">
+                {active ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-2 text-sm text-slate-400 font-body">
+                      <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                      Listening…
+                    </div>
+                    <Waveform active={active} />
+                  </div>
+                ) : (
+                  <p className="text-slate-500 text-sm font-body text-center">
+                    {isChromeOrEdge
+                      ? "Click to start listening"
+                      : "Use Chrome for live mic support"}
+                  </p>
+                )}
+              </div>
+
+              {error && (
+                <p className="text-red-400 text-xs font-body text-center">{error}</p>
+              )}
+
+              {!isChromeOrEdge && (
+                <button
+                  onClick={() => setFallback(true)}
+                  className="text-primary text-xs font-body hover:underline"
+                >
+                  Switch to demo mode
+                </button>
+              )}
+            </>
+          )}
 
           {/* Last transcript */}
           {lastTranscript && (
@@ -259,7 +334,6 @@ export function Session({ onClose }) {
             </div>
           )}
 
-          {/* Generating indicator */}
           {generating && (
             <div className="flex items-center gap-2 text-primary text-xs font-body">
               <motion.div
@@ -271,11 +345,6 @@ export function Session({ onClose }) {
             </div>
           )}
 
-          {error && (
-            <p className="text-red-400 text-xs font-body text-center">{error}</p>
-          )}
-
-          {/* Card count */}
           {cards.length > 0 && (
             <div className="text-slate-600 text-xs font-body">
               {cards.length} slide{cards.length !== 1 ? "s" : ""} generated
