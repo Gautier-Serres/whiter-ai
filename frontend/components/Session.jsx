@@ -219,7 +219,7 @@ export function Session({ onClose }) {
   const debounceRef = useRef(null);
   cardsRef.current = cards;
 
-  const SLIDE_PAUSE_MS = 6000; // generate a slide after 6s of silence
+  const SLIDE_PAUSE_MS = 3000; // generate a slide after 3s of silence
 
   const generateCard = useCallback(async (transcript) => {
     if (!transcript.trim()) return;
