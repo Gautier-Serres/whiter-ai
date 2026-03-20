@@ -4,8 +4,6 @@ import {
   Mic, MicOff, TrendingUp, Layers, Users, Target, Sparkles, Settings,
   X, RotateCcw, Send, ChevronRight, LayoutGrid,
 } from "lucide-react";
-import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
-
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const DEEPGRAM_KEY = import.meta.env.VITE_DEEPGRAM_API_KEY;
@@ -217,7 +215,11 @@ export function Session({ onClose }) {
   const deepgramRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const cardsRef = useRef(cards);
+  const bufferRef = useRef("");
+  const debounceRef = useRef(null);
   cardsRef.current = cards;
+
+  const SLIDE_PAUSE_MS = 6000; // generate a slide after 6s of silence
 
   const generateCard = useCallback(async (transcript) => {
     if (!transcript.trim()) return;
@@ -265,54 +267,87 @@ export function Session({ onClose }) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
 
-      const deepgram = createClient(DEEPGRAM_KEY);
-      const connection = deepgram.listen.live({
+      const params = new URLSearchParams({
         model: "nova-2",
         language: "en-US",
-        smart_format: true,
-        interim_results: true,
-        utterance_end_ms: 1200,
+        smart_format: "true",
+        interim_results: "true",
+        utterance_end_ms: "1200",
+        encoding: "opus",
       });
+      const ws = new WebSocket(
+        `wss://api.deepgram.com/v1/listen?${params}`,
+        ["token", DEEPGRAM_KEY],
+      );
 
-      connection.on(LiveTranscriptionEvents.Open, () => {
+      ws.onopen = () => {
         setActive(true);
         setError("");
 
-        const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm";
+        const recorder = new MediaRecorder(stream, { mimeType });
         recorder.ondataavailable = (e) => {
-          if (e.data.size > 0 && connection.getReadyState() === 1) {
-            connection.send(e.data);
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+            ws.send(e.data);
           }
         };
         recorder.start(250);
-        deepgramRef.current = { connection, recorder };
-      });
+        deepgramRef.current = { ws, recorder };
+      };
 
-      connection.on(LiveTranscriptionEvents.Transcript, (data) => {
-        const alt = data.channel?.alternatives?.[0];
-        if (!alt?.transcript) return;
-        setLastTranscript(alt.transcript);
-        if (data.is_final && alt.transcript.trim().length > 10) {
-          generateCard(alt.transcript.trim());
-        }
-      });
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const alt = data.channel?.alternatives?.[0];
+          if (!alt?.transcript) return;
 
-      connection.on(LiveTranscriptionEvents.Error, (err) => {
-        console.error("Deepgram error", err);
+          setLastTranscript(alt.transcript);
+
+          if (data.is_final && alt.transcript.trim().length > 3) {
+            // Accumulate into buffer
+            bufferRef.current = (bufferRef.current + " " + alt.transcript.trim()).trim();
+
+            // Reset debounce — slide fires after SLIDE_PAUSE_MS of silence
+            clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+              const text = bufferRef.current.trim();
+              bufferRef.current = "";
+              if (text.length > 10) generateCard(text);
+            }, SLIDE_PAUSE_MS);
+          }
+        } catch { /* ignore parse errors */ }
+      };
+
+      ws.onerror = () => {
         setFallback(true);
         setActive(false);
-      });
+      };
+
+      ws.onclose = (e) => {
+        if (e.code !== 1000) {
+          setFallback(true);
+          setActive(false);
+        }
+      };
 
     } catch (err) {
-      setError(err.message.includes("Permission") ? "Microphone permission denied." : "Could not start mic.");
+      setError(err.message?.includes("Permission") ? "Microphone permission denied." : "Could not start mic.");
       setFallback(true);
     }
   }, [generateCard]);
 
   const stopListening = useCallback(() => {
+    clearTimeout(debounceRef.current);
+    // Flush any buffered transcript before stopping
+    const remaining = bufferRef.current.trim();
+    bufferRef.current = "";
+    if (remaining.length > 10) generateCard(remaining);
+
     if (deepgramRef.current) {
       deepgramRef.current.recorder?.stop();
-      deepgramRef.current.connection?.finish();
+      deepgramRef.current.ws?.close(1000);
       deepgramRef.current = null;
     }
     if (mediaStreamRef.current) {
@@ -321,7 +356,7 @@ export function Session({ onClose }) {
     }
     setActive(false);
     setLastTranscript("");
-  }, []);
+  }, [generateCard]);
 
   const submitFallback = async (e) => {
     e.preventDefault();
