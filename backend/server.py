@@ -9,7 +9,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.models import WaitlistRequest, WaitlistResponse, WaitlistCount
+from backend.models import WaitlistRequest, WaitlistResponse, WaitlistCount, SlideRequest, SlideResponse
+from backend.slide_engine import generate_slide
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -106,6 +107,13 @@ async def waitlist_count():
     with get_db() as conn:
         count = conn.execute("SELECT COUNT(*) FROM signups").fetchone()[0]
     return WaitlistCount(count=count)
+
+
+@app.post("/api/generate-slide", response_model=SlideResponse)
+async def generate_slide_endpoint(payload: SlideRequest):
+    if not payload.transcript or not payload.transcript.strip():
+        raise HTTPException(status_code=422, detail="transcript cannot be empty")
+    return generate_slide(payload.transcript)
 
 
 @app.get("/api/waitlist/export")

@@ -5,9 +5,10 @@ import { Mic, Zap, Monitor, Users, Quote, ArrowRight, Sparkles, Brain, LayoutTem
 import { HeroComposition } from "./components/HeroComposition";
 import { HowItWorksComposition } from "./components/HowItWorksComposition";
 import { Waitlist } from "./components/Waitlist";
+import { Session } from "./components/Session";
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
-function Navbar() {
+function Navbar({ onLaunchSession }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -45,13 +46,19 @@ function Navbar() {
         >
           Join waitlist
         </button>
+        <button
+          onClick={onLaunchSession}
+          className="flex items-center gap-1.5 border border-white/20 text-white text-sm font-heading font-semibold px-4 py-2 rounded-full hover:bg-white/5 transition-all duration-200"
+        >
+          <Mic size={14} /> Live demo
+        </button>
       </div>
     </header>
   );
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
-function Hero() {
+function Hero({ onLaunchSession }) {
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   return (
@@ -96,6 +103,12 @@ function Hero() {
               className="bg-primary hover:bg-primary/90 text-white font-heading font-semibold px-8 py-4 rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 flex items-center gap-2"
             >
               Get early access <ArrowRight size={18} />
+            </button>
+            <button
+              onClick={onLaunchSession}
+              className="flex items-center gap-2 border border-primary/40 text-primary font-heading font-semibold px-8 py-4 rounded-xl hover:bg-primary/10 transition-all duration-200"
+            >
+              <Mic size={18} /> Try live demo
             </button>
             <button
               onClick={() => scrollTo("features")}
@@ -360,11 +373,14 @@ function Footer() {
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [sessionOpen, setSessionOpen] = useState(false);
+
   return (
     <div className="bg-dark text-white font-body min-h-screen">
-      <Navbar />
+      {sessionOpen && <Session onClose={() => setSessionOpen(false)} />}
+      <Navbar onLaunchSession={() => setSessionOpen(true)} />
       <header>
-        <Hero />
+        <Hero onLaunchSession={() => setSessionOpen(true)} />
       </header>
       <main>
         <SocialProof />

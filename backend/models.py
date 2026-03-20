@@ -20,3 +20,18 @@ class WaitlistResponse(BaseModel):
 
 class WaitlistCount(BaseModel):
     count: int
+
+
+class SlideRequest(BaseModel):
+    transcript: str
+
+    @property
+    def is_valid(self):
+        return bool(self.transcript and self.transcript.strip())
+
+
+class SlideResponse(BaseModel):
+    title: str
+    points: list[str]
+    category: str
+    icon: str
