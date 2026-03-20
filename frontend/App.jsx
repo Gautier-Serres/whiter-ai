@@ -7,6 +7,8 @@ import { HowItWorksComposition } from "./components/HowItWorksComposition";
 import { Waitlist } from "./components/Waitlist";
 import { Session } from "./components/Session";
 import { Board } from "./components/Board";
+import LiveDemoEmbed from "./components/LiveDemoEmbed";
+import DemoPage from "./pages/DemoPage";
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar({ onLaunchSession }) {
@@ -111,12 +113,12 @@ function Hero({ onLaunchSession }) {
             >
               <Mic size={18} /> Try live demo
             </button>
-            <button
-              onClick={() => scrollTo("features")}
-              className="border border-white/20 text-white font-heading font-semibold px-8 py-4 rounded-xl hover:bg-white/5 transition-all duration-200"
+            <a
+              href="?demo"
+              className="border border-white/20 text-white font-heading font-semibold px-8 py-4 rounded-xl hover:bg-white/5 transition-all duration-200 flex items-center gap-2"
             >
-              See how it works
-            </button>
+              Watch live demo
+            </a>
           </div>
         </motion.div>
 
@@ -256,28 +258,17 @@ function HowItWorks() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <h2 className="font-heading font-bold text-4xl text-white mb-4">How it works</h2>
-          <p className="font-body text-slate-400 text-lg">Three steps. Zero friction.</p>
+          <h2 className="font-heading font-bold text-4xl text-white mb-4">See it in action</h2>
+          <p className="font-body text-slate-400 text-lg">A real meeting. Live board. Watch it build itself.</p>
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.97 }}
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="max-w-xl mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-primary/10"
         >
-          <Player
-            component={HowItWorksComposition}
-            durationInFrames={270}
-            compositionWidth={480}
-            compositionHeight={300}
-            fps={30}
-            autoPlay
-            loop
-            controls={false}
-            style={{ width: "100%" }}
-          />
+          <LiveDemoEmbed />
         </motion.div>
       </div>
     </section>
@@ -376,9 +367,12 @@ function Footer() {
 export default function App() {
   const [sessionOpen, setSessionOpen] = useState(false);
 
-  // Audience board view: /?board=SESSION_ID
-  const boardId = new URLSearchParams(window.location.search).get("board");
+  const params = new URLSearchParams(window.location.search);
+  const boardId = params.get("board");
+  const isDemo  = params.has("demo");
+
   if (boardId) return <Board sessionId={boardId} />;
+  if (isDemo)  return <DemoPage />;
 
   return (
     <div className="bg-dark text-white font-body min-h-screen">
