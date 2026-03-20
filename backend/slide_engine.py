@@ -1,5 +1,5 @@
 """
-Slide generation from speech transcript using Claude AI.
+Slide generation from speech transcript using Groq AI.
 Falls back to heuristics if the API key is unavailable.
 """
 
@@ -9,6 +9,7 @@ import re
 from groq import Groq
 
 _client = None
+
 
 def get_client():
     global _client
@@ -21,7 +22,7 @@ def get_client():
 
 # ─── Groq-powered generation ──────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a real-time meeting assistant. Extract the most important insight from a speech excerpt and return a concise slide as JSON.
+BASE_SYSTEM_PROMPT = """You are a real-time meeting assistant. Extract the most important insight from a speech excerpt and return a concise slide as JSON.
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -40,7 +41,19 @@ Rules:
 - topic_key helps detect duplicate topics — reuse the same key for similar topics."""
 
 
-def generate_with_groq(transcript: str) -> dict | None:
+def build_system_prompt(context: str = None, subject: str = None) -> str:
+    prompt = BASE_SYSTEM_PROMPT
+    extras = []
+    if subject:
+        extras.append(f"Session topic: {subject}")
+    if context:
+        extras.append(f"Speaker's key context and talking points:\n{context}")
+    if extras:
+        prompt += "\n\nAdditional speaker context (use this to make slides more relevant):\n" + "\n".join(extras)
+    return prompt
+
+
+def generate_with_groq(transcript: str, context: str = None, subject: str = None) -> dict | None:
     client = get_client()
     if not client:
         return None
@@ -50,7 +63,7 @@ def generate_with_groq(transcript: str) -> dict | None:
             max_tokens=300,
             temperature=0.3,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": build_system_prompt(context, subject)},
                 {"role": "user", "content": f"Speech excerpt:\n\"{transcript}\""},
             ],
         )
@@ -72,7 +85,31 @@ def generate_with_groq(transcript: str) -> dict | None:
         return None
 
 
-# ─── Fallback heuristics (used when no API key) ───────────────────────────────
+# ─── Term lookup (for audience highlight feature) ─────────────────────────────
+
+def lookup_term(term: str) -> str:
+    client = get_client()
+    if not client:
+        return f"Definition unavailable — AI not configured."
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            max_tokens=120,
+            temperature=0.1,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"In exactly 1-2 short sentences, explain what '{term}' means "
+                    f"in a business or professional context. Be direct and factual."
+                ),
+            }],
+        )
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return "Definition unavailable."
+
+
+# ─── Fallback heuristics ──────────────────────────────────────────────────────
 
 CATEGORY_ICONS = {
     "Finance": "TrendingUp",
@@ -125,16 +162,13 @@ def generate_fallback(transcript: str) -> dict:
     text = transcript.strip()
     lower = text.lower()
 
-    # Category
     scores = {cat: sum(1 for kw in data["keywords"] if kw in lower) for cat, data in CATEGORIES.items()}
     category = max(scores, key=scores.get) if any(scores.values()) else "Strategy"
 
-    # Title
     tokens = re.findall(r"\b[a-zA-Z][a-zA-Z0-9]*\b", text)
     meaningful = [w for w in tokens if w.lower() not in STOPWORDS and len(w) > 2]
     title = " ".join(w.title() for w in meaningful[:4]) if meaningful else f"{category} Update"
 
-    # Points
     clauses = re.split(r"[,;]|\s+and\s+|\s+but\s+", text, flags=re.I)
     points = []
     for c in clauses:
@@ -159,8 +193,8 @@ def generate_fallback(transcript: str) -> dict:
 
 # ─── Main entry point ─────────────────────────────────────────────────────────
 
-def generate_slide(transcript: str) -> dict:
-    result = generate_with_groq(transcript)
+def generate_slide(transcript: str, context: str = None, subject: str = None) -> dict:
+    result = generate_with_groq(transcript, context=context, subject=subject)
     if result:
         return result
     return generate_fallback(transcript)

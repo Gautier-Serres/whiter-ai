@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, Layers, Users, Target, Sparkles, Settings } from "lucide-react";
+import { TrendingUp, Layers, Users, Target, Sparkles, Settings, X, Loader2 } from "lucide-react";
 
 const CATEGORY_CONFIG = {
   Finance:    { icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
@@ -10,6 +10,8 @@ const CATEGORY_CONFIG = {
   Vision:     { icon: Sparkles,   color: "text-pink-400",    bg: "bg-pink-500/10",    border: "border-pink-500/30"    },
   Operations: { icon: Settings,   color: "text-slate-400",   bg: "bg-slate-500/10",   border: "border-slate-500/30"   },
 };
+
+// ─── Fullscreen Slide ─────────────────────────────────────────────────────────
 
 function FullscreenSlide({ card }) {
   const config = CATEGORY_CONFIG[card.category] || CATEGORY_CONFIG.Strategy;
@@ -65,13 +67,14 @@ function FullscreenSlide({ card }) {
         </ul>
       </div>
 
-      {/* Watermark */}
-      <div className="absolute bottom-6 right-8 font-heading font-bold text-slate-800 text-sm">
+      <div className="absolute bottom-6 right-8 font-heading font-bold text-slate-800 text-sm select-none">
         Whiter<span className="text-primary/40">.</span>ai
       </div>
     </motion.div>
   );
 }
+
+// ─── Mini card strip ──────────────────────────────────────────────────────────
 
 function MiniCard({ card }) {
   const config = CATEGORY_CONFIG[card.category] || CATEGORY_CONFIG.Strategy;
@@ -83,11 +86,61 @@ function MiniCard({ card }) {
   );
 }
 
+// ─── Highlight Tooltip ────────────────────────────────────────────────────────
+
+function HighlightTooltip({ tooltip, onClose }) {
+  return (
+    <AnimatePresence>
+      {tooltip && (
+        <motion.div
+          initial={{ opacity: 0, y: 6, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 4, scale: 0.96 }}
+          transition={{ duration: 0.18 }}
+          style={{
+            position: "fixed",
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: "translate(-50%, -100%)",
+            zIndex: 100,
+            marginTop: -12,
+          }}
+          className="bg-[#0e0e1a] border border-white/15 rounded-xl px-4 py-3 max-w-72 shadow-2xl backdrop-blur-sm"
+        >
+          {/* Arrow */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-full w-0 h-0"
+            style={{ borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "6px solid rgba(255,255,255,0.15)" }}
+          />
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <span className="text-primary font-heading font-bold text-xs truncate">{tooltip.text}</span>
+            <button onClick={onClose} className="text-slate-600 hover:text-slate-400 flex-shrink-0 mt-0.5">
+              <X size={11} />
+            </button>
+          </div>
+          {tooltip.loading ? (
+            <div className="flex items-center gap-2 text-slate-500 text-xs">
+              <Loader2 size={11} className="animate-spin" />
+              Looking up…
+            </div>
+          ) : (
+            <p className="text-slate-300 text-xs leading-relaxed">{tooltip.definition}</p>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Board ────────────────────────────────────────────────────────────────────
+
 export function Board({ sessionId }) {
   const [cards, setCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [tooltip, setTooltip] = useState(null); // { text, x, y, loading, definition }
   const knownIdsRef = useRef(new Set());
 
+  // Poll for new cards
   useEffect(() => {
     if (!sessionId) return;
     const poll = async () => {
@@ -109,10 +162,50 @@ export function Board({ sessionId }) {
     return () => clearInterval(interval);
   }, [sessionId]);
 
-  // Auto-advance to latest card
+  // Auto-advance to latest
   useEffect(() => {
     if (cards.length > 0) setCurrentIndex(cards.length - 1);
   }, [cards.length]);
+
+  // Text highlight → lookup
+  useEffect(() => {
+    const handleMouseUp = async () => {
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
+      if (!text || text.length < 2 || text.length > 100) return;
+
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top - 8;
+
+      setTooltip({ text, x, y, loading: true, definition: null });
+
+      try {
+        const res = await fetch(`/api/lookup?q=${encodeURIComponent(text)}`);
+        const data = await res.json();
+        setTooltip(prev =>
+          prev?.text === text ? { ...prev, loading: false, definition: data.definition } : prev
+        );
+      } catch {
+        setTooltip(prev =>
+          prev?.text === text ? { ...prev, loading: false, definition: "Definition unavailable." } : prev
+        );
+      }
+    };
+
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => document.removeEventListener("mouseup", handleMouseUp);
+  }, []);
+
+  // Close tooltip on click elsewhere
+  useEffect(() => {
+    const handleMouseDown = (e) => {
+      if (tooltip && !e.target.closest(".tooltip-anchor")) setTooltip(null);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [tooltip]);
 
   if (!sessionId) {
     return (
@@ -124,12 +217,17 @@ export function Board({ sessionId }) {
 
   return (
     <div className="fixed inset-0 bg-dark overflow-hidden">
+
+      {/* Highlight tooltip */}
+      <HighlightTooltip tooltip={tooltip} onClose={() => setTooltip(null)} />
+
       {/* Main slide area */}
       <div className="relative h-full">
         {cards.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center">
             <div className="w-3 h-3 rounded-full bg-primary animate-pulse mb-4" />
             <p className="text-slate-600 font-body text-sm">Waiting for the session to start…</p>
+            <p className="text-slate-700 font-body text-xs mt-2">Select any text on a slide to look it up</p>
           </div>
         ) : (
           <AnimatePresence mode="wait">
@@ -138,16 +236,27 @@ export function Board({ sessionId }) {
         )}
       </div>
 
-      {/* Bottom strip: mini cards history */}
+      {/* Bottom mini strip */}
       {cards.length > 1 && (
         <div className="absolute bottom-0 left-0 right-0 bg-dark/80 backdrop-blur border-t border-white/10 px-6 py-3">
           <div className="flex gap-3 overflow-x-auto pb-1">
             {cards.map((card, i) => (
-              <button key={card.id} onClick={() => setCurrentIndex(i)} className={`transition-opacity ${i === currentIndex ? "opacity-100" : "opacity-40 hover:opacity-70"}`}>
+              <button
+                key={card.id}
+                onClick={() => setCurrentIndex(i)}
+                className={`transition-opacity ${i === currentIndex ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
+              >
                 <MiniCard card={card} />
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Hint */}
+      {cards.length > 0 && (
+        <div className="absolute bottom-20 right-4 text-slate-700 text-xs font-body">
+          Select text to look it up
         </div>
       )}
     </div>

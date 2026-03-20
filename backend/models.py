@@ -25,6 +25,9 @@ class WaitlistCount(BaseModel):
 class SlideRequest(BaseModel):
     transcript: str
     session_id: Optional[str] = None
+    context: Optional[str] = None    # speaker pre-briefing notes
+    subject: Optional[str] = None    # talk topic / subject
+    template: Optional[str] = None   # visual theme id
 
     @property
     def is_valid(self):
@@ -39,3 +42,8 @@ class SlideResponse(BaseModel):
     icon: str
     layout: str
     topic_key: str
+
+
+class LookupResponse(BaseModel):
+    term: str
+    definition: str
