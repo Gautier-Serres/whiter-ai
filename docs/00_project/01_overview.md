@@ -2,13 +2,11 @@
 
 ## Your Startup
 
-> This file is filled in automatically when you run `/interview` in Claude Code.
-
-**Startup Name**: [Your startup name]
-**Tagline**: [One-line pitch — what do you do?]
-**Problem**: [What pain point are you solving?]
-**Solution**: [How do you solve it?]
-**Target Customer**: [Who is this for?]
+**Startup Name**: Whiter.ai
+**Tagline**: The whiteboard that writes itself.
+**Problem**: Meeting leaders and speakers struggle to keep audiences engaged. Static slides prepared in advance can't keep up with the natural flow of a conversation, forcing speakers to either over-prepare or lose their audience's attention.
+**Solution**: SlideMind listens to the speaker in real time and instantly generates synchronized, contextual slides from their spoken words — no prep, no friction, full engagement.
+**Target Customer**: Meeting facilitators, keynote speakers, workshop leaders, educators, and team leads who present frequently and want to captivate their audience without the overhead of manual slide creation.
 
 ## What You're Building
 
@@ -24,24 +22,24 @@ This is a real, deployable website — not a mockup.
 
 ### Archetype
 
-**Archetype**: [Corporate / Bold / Warm / Playful / Premium]
-**Heading Font**: [e.g. Inter, Space Grotesk, Libre Baskerville, DM Sans, Outfit]
-**Body Font**: [e.g. Inter, system default]
-**Mode**: [Light / Dark]
-**Primary Color**: [e.g. #2563EB]
-**Accent Color**: [e.g. #F59E0B — for highlights, badges, hover states]
-**Border Radius**: [sharp (rounded-md) / soft (rounded-xl) / pill (rounded-full)]
-**Shadow Style**: [subtle (shadow-sm) / strong (shadow-lg) / none]
+**Archetype**: Bold
+**Heading Font**: Space Grotesk
+**Body Font**: Inter
+**Mode**: Dark
+**Primary Color**: #6366F1 (indigo)
+**Accent Color**: #A78BFA (violet — for highlights, badges, hover states)
+**Border Radius**: soft (rounded-xl)
+**Shadow Style**: strong (shadow-lg)
 
 ### Inspiration
 
-**Reference site**: [Any website or brand you admire?]
+**Reference site**: Linear.app, Vercel
 **Design traits to borrow**:
-- [Color palette: e.g. "dark navy hero with white text, coral accents"]
-- [Typography: e.g. "bold sans-serif headlines, light body text"]
-- [Layout: e.g. "full-bleed hero, alternating sections, lots of whitespace"]
-- [Visual style: e.g. "subtle gradients, rounded cards, soft shadows"]
-- [CTA style: e.g. "bright accent color, rounded pill buttons"]
+- Color palette: deep dark background (#0A0A0F) with white text, indigo/violet gradients
+- Typography: bold condensed headings, clean light body text
+- Layout: full-bleed hero with animated demo, alternating sections, generous whitespace
+- Visual style: subtle mesh gradients, glowing card borders, dark glassmorphism panels
+- CTA style: indigo pill button with violet hover glow
 
 ## Tech Stack (Fixed)
 

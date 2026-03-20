@@ -4,7 +4,9 @@
 export default function App() {
   return (
     <div>
-      {/* Your landing page components will go here */}
+      <header />
+      <main />
+      <footer />
     </div>
   );
 }
