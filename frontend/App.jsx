@@ -6,6 +6,7 @@ import { HeroComposition } from "./components/HeroComposition";
 import { HowItWorksComposition } from "./components/HowItWorksComposition";
 import { Waitlist } from "./components/Waitlist";
 import { Session } from "./components/Session";
+import { Board } from "./components/Board";
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 function Navbar({ onLaunchSession }) {
@@ -374,6 +375,10 @@ function Footer() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [sessionOpen, setSessionOpen] = useState(false);
+
+  // Audience board view: /?board=SESSION_ID
+  const boardId = new URLSearchParams(window.location.search).get("board");
+  if (boardId) return <Board sessionId={boardId} />;
 
   return (
     <div className="bg-dark text-white font-body min-h-screen">

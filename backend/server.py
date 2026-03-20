@@ -26,6 +26,15 @@ _rate_limit: dict[str, list[float]] = defaultdict(list)
 RATE_LIMIT = 5
 RATE_WINDOW = 60
 
+# ─── Session store (in-memory) ────────────────────────────────────────────────
+
+import secrets
+_sessions: dict[str, list[dict]] = {}
+
+
+def new_session_id() -> str:
+    return secrets.token_urlsafe(6)
+
 
 def check_rate_limit(ip: str) -> bool:
     now = time.time()
@@ -111,11 +120,27 @@ async def waitlist_count():
     return WaitlistCount(count=count)
 
 
+@app.post("/api/session/new")
+async def create_session():
+    sid = new_session_id()
+    _sessions[sid] = []
+    return {"session_id": sid}
+
+
+@app.get("/api/session/{session_id}/cards")
+async def get_session_cards(session_id: str):
+    return _sessions.get(session_id, [])
+
+
 @app.post("/api/generate-slide", response_model=SlideResponse)
 async def generate_slide_endpoint(payload: SlideRequest):
     if not payload.transcript or not payload.transcript.strip():
         raise HTTPException(status_code=422, detail="transcript cannot be empty")
-    return generate_slide(payload.transcript)
+    result = generate_slide(payload.transcript)
+    # Store in session if session_id provided
+    if payload.session_id and payload.session_id in _sessions:
+        _sessions[payload.session_id].append(result)
+    return result
 
 
 @app.get("/api/waitlist/export")

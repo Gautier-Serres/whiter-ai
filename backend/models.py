@@ -24,6 +24,7 @@ class WaitlistCount(BaseModel):
 
 class SlideRequest(BaseModel):
     transcript: str
+    session_id: Optional[str] = None
 
     @property
     def is_valid(self):

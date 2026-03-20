@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic, MicOff, TrendingUp, Layers, Users, Target, Sparkles, Settings,
-  X, RotateCcw, Send, ChevronRight, LayoutGrid,
+  X, RotateCcw, Send, ChevronRight, LayoutGrid, Check, Link2, Download,
 } from "lucide-react";
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -181,12 +181,20 @@ function SummaryBoard({ cards, onNewSession }) {
             <h2 className="font-heading font-bold text-white text-2xl">Session summary</h2>
             <p className="font-body text-slate-500 text-sm mt-1">{cards.length} slides generated</p>
           </div>
-          <button
-            onClick={onNewSession}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-heading font-semibold px-5 py-2.5 rounded-xl text-sm transition-all duration-200"
-          >
-            <RotateCcw size={14} /> New session
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => exportSession(cards)}
+              className="flex items-center gap-2 border border-white/15 hover:border-white/30 text-slate-300 hover:text-white font-heading font-semibold px-4 py-2.5 rounded-xl text-sm transition-all duration-200"
+            >
+              <Download size={14} /> Export
+            </button>
+            <button
+              onClick={onNewSession}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-heading font-semibold px-5 py-2.5 rounded-xl text-sm transition-all duration-200"
+            >
+              <RotateCcw size={14} /> New session
+            </button>
+          </div>
         </div>
         <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {[...cards].reverse().map((card, i, arr) => {
@@ -202,11 +210,64 @@ function SummaryBoard({ cards, onNewSession }) {
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 
+const LANGUAGES = [
+  { code: "en-US", label: "English" },
+  { code: "fr",    label: "French" },
+  { code: "de",    label: "German" },
+  { code: "es",    label: "Spanish" },
+  { code: "it",    label: "Italian" },
+  { code: "pt",    label: "Portuguese" },
+  { code: "nl",    label: "Dutch" },
+  { code: "pl",    label: "Polish" },
+];
+
+function exportSession(cards) {
+  const lines = cards.map((c, i) => `
+    <div class="card">
+      <div class="badge">${c.sub_category || c.category}</div>
+      <h2>${c.title}</h2>
+      <ul>${c.points.map(p => `<li>${p}</li>`).join("")}</ul>
+      <div class="time">${c.time}</div>
+    </div>
+  `).join("");
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Whiter.ai — Session Export</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; padding: 40px; color: #1a1a1a; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .meta { color: #666; font-size: 0.85rem; margin-bottom: 32px; }
+  .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; page-break-inside: avoid; }
+  .badge { display: inline-block; background: #ede9fe; color: #7c3aed; font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+  h2 { font-size: 1.15rem; margin: 0 0 10px; }
+  ul { margin: 0; padding-left: 18px; color: #444; }
+  li { margin-bottom: 4px; font-size: 0.9rem; }
+  .time { color: #aaa; font-size: 0.75rem; margin-top: 10px; }
+  @media print { body { background: white; padding: 20px; } }
+</style></head><body>
+<h1>Whiter.ai — Session Summary</h1>
+<div class="meta">${new Date().toLocaleDateString()} · ${cards.length} slide${cards.length !== 1 ? "s" : ""}</div>
+${lines}
+</body></html>`;
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `whiter-session-${new Date().toISOString().slice(0, 10)}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function Session({ onClose }) {
   const [active, setActive] = useState(false);
   const [ended, setEnded] = useState(false);
   const [fallback, setFallback] = useState(false);
   const [fallbackInput, setFallbackInput] = useState("");
+  const [language, setLanguage] = useState("en-US");
+  const [sessionId, setSessionId] = useState(null);
+  const [boardUrl, setBoardUrl] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [cards, setCards] = useState([]);
   const [fullscreenCard, setFullscreenCard] = useState(null);
   const [lastTranscript, setLastTranscript] = useState("");
@@ -217,9 +278,16 @@ export function Session({ onClose }) {
   const cardsRef = useRef(cards);
   const bufferRef = useRef("");
   const debounceRef = useRef(null);
+  const sessionIdRef = useRef(null);
   cardsRef.current = cards;
 
-  const SLIDE_PAUSE_MS = 3000; // generate a slide after 3s of silence
+  const SLIDE_PAUSE_MS = 3000;
+
+  const copyBoardUrl = async () => {
+    await navigator.clipboard.writeText(boardUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const generateCard = useCallback(async (transcript) => {
     if (!transcript.trim()) return;
@@ -228,7 +296,7 @@ export function Session({ onClose }) {
       const res = await fetch("/api/generate-slide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
+        body: JSON.stringify({ transcript, session_id: sessionIdRef.current }),
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -259,6 +327,12 @@ export function Session({ onClose }) {
   }, []);
 
   const startDeepgram = useCallback(async () => {
+    // Create session on backend
+    const sid = (await (await fetch("/api/session/new", { method: "POST" })).json()).session_id;
+    sessionIdRef.current = sid;
+    setSessionId(sid);
+    setBoardUrl(`${window.location.origin}/?board=${sid}`);
+
     if (!DEEPGRAM_KEY) {
       setFallback(true);
       return;
@@ -269,7 +343,7 @@ export function Session({ onClose }) {
 
       const params = new URLSearchParams({
         model: "nova-2",
-        language: "en-US",
+        language,
         smart_format: "true",
         interim_results: "true",
         utterance_end_ms: "1200",
@@ -336,7 +410,7 @@ export function Session({ onClose }) {
       setError(err.message?.includes("Permission") ? "Microphone permission denied." : "Could not start mic.");
       setFallback(true);
     }
-  }, [generateCard]);
+  }, [generateCard, language]);
 
   const stopListening = useCallback(() => {
     clearTimeout(debounceRef.current);
@@ -425,7 +499,21 @@ export function Session({ onClose }) {
       ) : (
         <div className="flex flex-1 overflow-hidden">
           {/* Left: controls */}
-          <div className="w-72 border-r border-white/10 flex flex-col items-center justify-center gap-6 px-8 flex-shrink-0">
+          <div className="w-72 border-r border-white/10 flex flex-col items-center justify-center gap-5 px-8 flex-shrink-0 overflow-y-auto py-8">
+
+            {/* Language selector — only before session starts */}
+            {!active && !fallback && (
+              <div className="w-full">
+                <label className="text-slate-500 text-xs font-body mb-1.5 block">Language</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full bg-white/5 border border-white/15 text-white text-sm font-body px-3 py-2 rounded-lg focus:outline-none focus:border-primary/50 transition-colors"
+                >
+                  {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </select>
+              </div>
+            )}
 
             {fallback ? (
               <>
@@ -487,11 +575,24 @@ export function Session({ onClose }) {
                 </div>
 
                 {error && <p className="text-red-400 text-xs font-body text-center">{error}</p>}
-
                 <button onClick={() => setFallback(true)} className="text-slate-600 hover:text-slate-400 text-xs font-body transition-colors">
                   Switch to demo mode
                 </button>
               </>
+            )}
+
+            {/* Board URL — shown once session is live */}
+            {boardUrl && (
+              <div className="w-full bg-white/3 border border-white/10 rounded-lg p-3">
+                <p className="text-slate-500 text-xs font-body mb-2">Audience board URL</p>
+                <p className="text-white text-xs font-mono break-all mb-2">{boardUrl}</p>
+                <button
+                  onClick={copyBoardUrl}
+                  className="flex items-center gap-1.5 text-primary text-xs font-body hover:underline"
+                >
+                  {copied ? <><Check size={12} /> Copied!</> : <><Link2 size={12} /> Copy link</>}
+                </button>
+              </div>
             )}
 
             {lastTranscript && (
