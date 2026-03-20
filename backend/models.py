@@ -34,4 +34,7 @@ class SlideResponse(BaseModel):
     title: str
     points: list[str]
     category: str
+    sub_category: str
     icon: str
+    layout: str
+    topic_key: str
